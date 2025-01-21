@@ -1,0 +1,65 @@
+import java.text.SimpleDateFormat
+
+plugins {
+    id "java"
+    id "io.freefair.lombok" version "6.6.3"
+}
+
+group 'com.solace.tools.solconfig'
+
+def longVersion(){
+    var lastTag = 'git describe --abbrev=0 --tags'.execute().text.trim()
+    //%ci - committer date, ISO 8601-like format
+    var lastCommit = 'git log -1 --pretty=%h~%ci'.execute().text.trim()
+    lastTag+", commit: "+lastCommit + ", built: "+ new SimpleDateFormat("yyyy-MM-dd HH:mm:ss X").format(new Date())
+}
+
+repositories {
+    mavenCentral()
+}
+
+task nativeAgent(type:Exec) {
+    commandLine 'mkdir', '-p', './src/main/resources/META-INF/native-image/solconfig'
+    commandLine 'java', '-agentlib:native-image-agent=config-output-dir=./src/main/resources/META-INF/native-image/solconfig', '-jar', 'build/libs/solconfig.jar', 'test'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(11)
+    }
+}
+
+jar {
+    archiveFileName = rootProject.name+".jar"
+    manifest {
+        attributes "Main-Class": "com.solace.tools.solconfig.App",
+                'Implementation-Title': rootProject.name,
+                'Implementation-Version': longVersion()
+    }
+
+    from {
+        duplicatesStrategy = DuplicatesStrategy.INCLUDE
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
+dependencies {
+    // Use JUnit Jupiter for testing.
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.9.0'
+
+    // Use JUnit Jupiter Engine for testing.
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.9.0'
+
+    // This dependency is used by the application.
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.14.0'
+    implementation 'info.picocli:picocli:4.7.0'
+    annotationProcessor 'info.picocli:picocli-codegen:4.7.0'
+    implementation 'ch.qos.logback:logback-classic:1.4.5'
+    implementation 'com.jayway.jsonpath:json-path:2.7.0'
+    implementation 'org.freemarker:freemarker:2.3.31'
+}
+
+tasks.named('test') {
+    // Use junit platform for unit tests.
+    useJUnitPlatform()
+}
